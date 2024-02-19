@@ -19,7 +19,7 @@ jobs:
         
       - name: Publish image to Docker Hub
         run: docker push drjseifu/nodejs-app:latest || exit 1
-
+      
   deploy:
     needs: build
     runs-on: aws-ec2
@@ -36,21 +36,27 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs: [build, deploy]
-    if: always()
+    if: ${{ always() }}
     steps:
-      - name: Check if any job failed
-        id: check_failure
-        run: echo ::set-output name=failed::$(if [ ${{ success() }} == 'false' ]; then echo "true"; else echo "false"; fi)
+      - name: Check build job status
+        id: build_status
+        if: failure()
+        run: echo "::set-output name=status::failed"
       
+      - name: Check deploy job status
+        id: deploy_status
+        if: failure()
+        run: echo "::set-output name=status::failed"
+
       - name: Send Telegram message on failure
-        if: steps.check_failure.outputs.failed == 'true'
+        if: steps.build_status.outputs.status == 'failed' || steps.deploy_status.outputs.status == 'failed'
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
           -d text="CI/CD process failed."
-      
+
       - name: Send Telegram message on success
-        if: steps.check_failure.outputs.failed == 'false'
+        if: steps.build_status.outputs.status != 'failed' && steps.deploy_status.outputs.status != 'failed'
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
