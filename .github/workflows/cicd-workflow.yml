@@ -39,18 +39,18 @@ jobs:
     needs: [build, deploy]
     steps:
       - name: Check if any job failed
-        id: failed
-        run: echo ::set-output name=failed::$(if [ -z "$(git status --porcelain)" ]; then echo "false"; else echo "true"; fi)
+        id: check_failure
+        run: echo ::set-output name=failed::$(if [ ${{ job.status }} == 'failure' ]; then echo "true"; else echo "false"; fi)
       
-      - name: Send Telegram message
-        if: steps.failed.outputs.failed == 'true'
+      - name: Send Telegram message on failure
+        if: steps.check_failure.outputs.failed == 'true'
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
           -d text="CI/CD process failed."
       
-      - name: Send Telegram message
-        if: steps.failed.outputs.failed == 'false'
+      - name: Send Telegram message on success
+        if: steps.check_failure.outputs.failed == 'false'
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
