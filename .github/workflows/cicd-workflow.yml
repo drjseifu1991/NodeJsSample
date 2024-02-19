@@ -6,25 +6,41 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
-      - name: Login to docker hub
+      - name: Login to Docker Hub
         run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build docker image
+      - name: Build Docker image
         run: docker build -t drjseifu/nodejs-app .
-      - name: Publish image to docker hub
+      - name: Publish image to Docker Hub
         run: docker push drjseifu/nodejs-app:latest
-  
 
   deploy:
     needs: build
-    runs-on: [aws-ec2]
+    runs-on: aws-ec2
     steps:
-      - name: Pull image from docker hub
+      - name: Pull image from Docker Hub
         run: docker pull drjseifu/nodejs-app:latest
-      - name: Delete old container
-        run: docker rm -f nodejs-app-container
-      - name: Run docker container
+      - name: Delete old container (if exists)
+        run: docker rm -f nodejs-app-container || true  # Ignore error if the container doesn't exist
+      - name: Run Docker container
         run: docker run -d -p 5000:5000 --name nodejs-app-container drjseifu/nodejs-app
+
+  notify:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Send Telegram message
+        run: |
+          if [ ${{ success() }} = 'true' ]; then
+            curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="Deployment completed successfully."
+          else
+            curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="Deployment failed."
+          fi
