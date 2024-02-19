@@ -28,5 +28,3 @@ jobs:
         run: docker rm -rf nodejs-app-container
       - name: Run docker container
         run: docker run -d -p 5000:5000 --name nodejs-app-container drjseifu/nodejs-app
-        
-       
